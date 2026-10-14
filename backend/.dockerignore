@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+*.log
+.env
+.env.*
+!.env.example
+tests
+Dockerfile
+.dockerignore
+# Firebase service account keys are mounted at runtime, never baked in.
+*firebase-adminsdk*.json
+*service-account*.json

@@ -1,0 +1,4 @@
+{
+  "API_URL": "http://<laptop-ip>:5002/api",
+  "WEB_URL": "http://<laptop-ip>:3000"
+}
