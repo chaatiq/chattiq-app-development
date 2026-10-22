@@ -1,0 +1,6 @@
+# Copy to key.properties (git-ignored) to sign release builds with the Play Store upload key.
+# Keep the keystore file outside the repository.
+storePassword=your-store-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=C:/path/to/chattiq-upload.jks
