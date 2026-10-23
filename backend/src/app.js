@@ -12,7 +12,10 @@ const PROXY_TIMEOUT_MS = 60_000;
 /**
  * The app talks to one URL: this service. Mobile-only endpoints are handled
  * here; every other /api request (chats, messages, takeover...) is forwarded
- * unchanged to the Chattiq API, including the Authorization header.
+ * unchanged to the Chattiq API, including the Authorization header and the
+ * X-Forwarded-For header from nginx. This service does not add itself to that
+ * header, so the Chattiq API rate-limits each phone by its own address (as it
+ * does for the website) instead of counting every app user as one client.
  *
  * Dependencies are passed in so tests can replace the database and network.
  */
@@ -47,7 +50,7 @@ function createApp({ config, userRepo, deviceRepo, mobileSessions, pushService, 
     createProxyMiddleware({
       target: config.chattiqApiUrl,
       changeOrigin: true,
-      xfwd: true,
+      xfwd: false,
       proxyTimeout: PROXY_TIMEOUT_MS,
       on: {
         error(err, req, res) {

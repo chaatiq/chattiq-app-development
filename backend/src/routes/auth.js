@@ -38,7 +38,7 @@ function createAuthRouter({ jwtSecret, chattiqClient, mobileSessions, logger = c
     const { email, password, client, deviceName } = req.body;
     let result;
     try {
-      result = await chattiqClient.login({ email, password });
+      result = await chattiqClient.login({ email, password, forwardedFor: req.headers['x-forwarded-for'] });
     } catch (err) {
       logger.error('login: Chattiq API unreachable', err?.message || err);
       return res.status(502).json({ success: false, message: 'Login is temporarily unavailable. Please try again.' });
