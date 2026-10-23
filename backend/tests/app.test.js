@@ -35,14 +35,14 @@ describe('mobile backend', () => {
   let chattiq;
   let mobile;
   let url;
-  const seen = { forwarded: [], notified: [], registered: [] };
+  const seen = { forwarded: [], notified: [], registered: [], logins: [] };
 
   before(async () => {
     // Fake Chattiq API: one data route, and echoes what it receives.
     const fake = express();
     fake.use(express.json());
     fake.get('/api/dashboard/sessions', (req, res) => {
-      seen.forwarded.push({ path: req.originalUrl, auth: req.headers.authorization });
+      seen.forwarded.push({ path: req.originalUrl, auth: req.headers.authorization, xff: req.headers['x-forwarded-for'] });
       res.json([{ session_id: 's1' }]);
     });
     fake.post('/api/auth/forgot-password', (req, res) => res.json({ echoed: req.body }));
@@ -73,10 +73,12 @@ describe('mobile backend', () => {
         },
       },
       chattiqClient: {
-        login: async ({ password }) =>
-          password === 'correct-password'
+        login: async ({ password, forwardedFor }) => {
+          seen.logins.push({ forwardedFor });
+          return password === 'correct-password'
             ? { status: 200, body: { success: true, accessToken: 'chattiq-token', user: { id: USER.id } } }
-            : { status: 401, body: { success: false, message: 'Incorrect password' } },
+            : { status: 401, body: { success: false, message: 'Incorrect password' } };
+        },
       },
       logger: silentLogger,
     });
@@ -155,7 +157,21 @@ describe('mobile backend', () => {
     const res = await fetch(`${url}/api/dashboard/sessions?limit=200`, { headers: { Authorization: 'Bearer abc' } });
     assert.equal(res.status, 200);
     assert.deepEqual(await res.json(), [{ session_id: 's1' }]);
-    assert.deepEqual(seen.forwarded.at(-1), { path: '/api/dashboard/sessions?limit=200', auth: 'Bearer abc' });
+    assert.deepEqual(seen.forwarded.at(-1), { path: '/api/dashboard/sessions?limit=200', auth: 'Bearer abc', xff: undefined });
+  });
+
+  test('forwarded requests keep the X-Forwarded-For from nginx unchanged', async () => {
+    await fetch(`${url}/api/dashboard/sessions`, { headers: { 'X-Forwarded-For': '203.0.113.7, 10.0.0.5' } });
+    assert.equal(seen.forwarded.at(-1).xff, '203.0.113.7, 10.0.0.5');
+  });
+
+  test('login passes the X-Forwarded-For on to the Chattiq API', async () => {
+    await post(
+      '/api/auth/login',
+      { email: 'owner@example.com', password: 'correct-password', client: 'mobile' },
+      { 'X-Forwarded-For': '203.0.113.7, 10.0.0.5' },
+    );
+    assert.equal(seen.logins.at(-1).forwardedFor, '203.0.113.7, 10.0.0.5');
   });
 
   test('forwarded POST requests keep their body (even under /api/auth)', async () => {
